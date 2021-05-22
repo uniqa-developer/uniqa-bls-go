@@ -1,0 +1,4 @@
+
+[submodule "uniqa-bls-snark-rs"]
+	path = uniqa-bls-snark-rs
+	url = https://github.com/uniqa-developer/uniqa-bls-snark-rs

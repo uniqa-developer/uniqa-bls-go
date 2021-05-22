@@ -1,0 +1,78 @@
+version: 2.1
+
+defaults: &defaults
+  working_directory: ~/app
+
+rust_defaults: &rust_defaults
+  <<: *defaults
+  docker:
+    - image: circleci/rust:latest
+
+go_defaults: &go_defaults
+  <<: *defaults
+  docker:
+    - image: circleci/golang:latest
+
+jobs:
+  checkout-repo:
+    <<: *go_defaults
+    steps:
+      - checkout
+      - attach_workspace:
+          at: ~/app
+      - persist_to_workspace:
+          root: .
+          paths: .
+
+  go-tests:
+    <<: *go_defaults
+    working_directory: ~/app
+    steps:
+      - attach_workspace:
+          at: ~/app
+      - run: 
+          name: Run Tests
+          command: |
+            cd ~/app
+            go test ./bls ./snark
+      - run:
+          name: Build and run example
+          command: |
+            cd ~/app/
+            cd ./examples
+            go build bls_example.go
+            ./bls_example
+
+  bundle-libs:
+    working_directory: ~/app
+    macos:
+      xcode: 11.4.0
+    resource_class: large
+    steps:
+      - attach_workspace:
+          at: ~/app
+      - run:
+          name: Install rustup
+          command: curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+      - run:
+          name: Build release libs
+          command: |
+            git submodule update --init --recursive
+            ./scripts/release.sh
+      - store_artifacts:
+          path: ~/app/libs.tar.gz
+      - persist_to_workspace:
+          root: .
+          paths: .
+
+workflows:
+  version: 2
+  run-tests:
+    jobs:
+      - checkout-repo
+      - bundle-libs:
+          requires:
+            - checkout-repo
+      - go-tests:
+          requires:
+            - bundle-libs
